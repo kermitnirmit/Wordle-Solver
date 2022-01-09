@@ -5,9 +5,48 @@ import re
 words = open("words/words_alpha.txt").read().strip().splitlines()
 
 gamelen = int(input("how many letters is the word? "))
-
 words = list(filter(lambda x: len(x) == gamelen, words))
 # print(len(words)) The real wordle list only has 2500 words and this has almost 16000
+
+# sort by scrabble order // common letters higher up
+
+def scrabble_score(word):
+    valuemap = {
+        'a': 1,
+        'b': 3,
+        'c': 3,
+        'd': 2,
+        'e': 1,
+        'f': 4,
+        'g': 2,
+        'h': 4,
+        'i': 1,
+        'j': 8,
+        'k': 5,
+        'l': 1,
+        'm': 3,
+        'n': 1,
+        'o': 1,
+        'p': 3,
+        'q': 10,
+        'r': 1,
+        's': 1,
+        't': 1,
+        'u': 1,
+        'v': 4,
+        'w': 4,
+        'x': 8,
+        'y': 4,
+        'z': 10
+    }
+    score = 0
+    
+    for letter in word:
+        score += valuemap[letter]
+    return score
+
+words.sort(key= lambda x: (scrabble_score(x), -1 * len(set(x))))
+
 yellows = defaultdict(list)
 greens = [""] * gamelen
 wrongs = set()
@@ -26,14 +65,14 @@ def generate_green_str(greens):
 for i in range(6):
     print("number of words it could be: ", len(words))
     if len(words) > 15:
-        print("some next guesses", sample(words, 15))
+        print("some next guesses", words[:15])
         happy = False
         while not happy:
             answer = input("type y to see more guesses: ")
             if answer != "y":
                 happy = True
             else:
-                print("some next guesses", sample(words, 15))
+                print("some next guesses", words[:15])
     else:
         print("some next guesses", words)
 
