@@ -1,14 +1,16 @@
 from collections import defaultdict
-from random import sample
 import re
 
 words = open("words/words_alpha.txt").read().strip().splitlines()
 
 gamelen = int(input("how many letters is the word? "))
 words = list(filter(lambda x: len(x) == gamelen, words))
+
+
 # print(len(words)) The real wordle list only has 2500 words and this has almost 16000
 
-# sort by scrabble order // common letters higher up
+# sort by scrabble order // common letters higher up but also favor letter diversity among those that are tied for
+# scrabble score
 
 def scrabble_score(word):
     valuemap = {
@@ -40,12 +42,13 @@ def scrabble_score(word):
         'z': 10
     }
     score = 0
-    
+
     for letter in word:
         score += valuemap[letter]
     return score
 
-words.sort(key= lambda x: (scrabble_score(x), -1 * len(set(x))))
+
+words.sort(key=lambda x: (scrabble_score(x), -1 * len(set(x))))
 
 yellows = defaultdict(list)
 greens = [""] * gamelen
@@ -67,12 +70,14 @@ for i in range(6):
     if len(words) > 15:
         print("some next guesses", words[:15])
         happy = False
-        while not happy:
+        wordstoshow = 0
+        while not happy and wordstoshow < len(words):
             answer = input("type y to see more guesses: ")
             if answer != "y":
                 happy = True
             else:
-                print("some next guesses", words[:15])
+                wordstoshow += 15
+                print("some next guesses", words[wordstoshow:wordstoshow+15])
     else:
         print("some next guesses", words)
 
