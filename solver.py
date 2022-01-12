@@ -1,59 +1,33 @@
-from collections import defaultdict
+from collections import defaultdict, Counter
 import re
 
-words = open("words/words_alpha.txt").read().strip().splitlines()
+import sys
 
-gamelen = int(input("how many letters is the word? "))
+words = open("words/words_alpha.txt").read().strip().splitlines()
+gamelen = int(sys.argv[1])
 words = list(filter(lambda x: len(x) == gamelen, words))
 
+saved_orig = words
 
 # print(len(words)) The real wordle list only has 2500 words and this has almost 16000
-
-# sort by scrabble order // common letters higher up but also favor letter diversity among those that are tied for
-# scrabble score
-
-def scrabble_score(word):
-    valuemap = {
-        'a': 1,
-        'b': 3,
-        'c': 3,
-        'd': 2,
-        'e': 1,
-        'f': 4,
-        'g': 2,
-        'h': 4,
-        'i': 1,
-        'j': 8,
-        'k': 5,
-        'l': 1,
-        'm': 3,
-        'n': 1,
-        'o': 1,
-        'p': 3,
-        'q': 10,
-        'r': 1,
-        's': 1,
-        't': 1,
-        'u': 1,
-        'v': 4,
-        'w': 4,
-        'x': 8,
-        'y': 4,
-        'z': 10
-    }
-    score = 0
-
-    for letter in word:
-        score += valuemap[letter]
-    return score
-
-
-words.sort(key=lambda x: (scrabble_score(x), -1 * len(set(x))))
 
 yellows = defaultdict(list)
 greens = [""] * gamelen
 wrongs = set()
+doubles = set()
 
+greensfilled = 0
+
+def getWordsWithLetters(wordlist, letters):
+    nlist = []
+    for word in wordlist:
+        if len(letters & set(word)) > 0:
+            nlist.append(word)
+
+    def score(w):
+        return len(set(w) & letters)
+    nlist.sort(key= lambda x: score(x), reverse=True)
+    return nlist
 
 def generate_green_str(greens):
     restr = ""
@@ -64,22 +38,36 @@ def generate_green_str(greens):
             restr += letter
     return restr
 
+def find_most_common_at_index(i, words):
+    a = defaultdict(int)
+    for word in words:
+        a[word[i]] += 1
+    return a
+
+def commonscore(commons, word):
+    score = 0
+    for index, letter in enumerate(word):
+        score += commons[index][letter]
+    return score
 
 for i in range(6):
+    most_commons = [find_most_common_at_index(index, words) for index in range(gamelen)]
+    words.sort(key = lambda x: commonscore(most_commons, x), reverse=True)
+    emptyspots = []
+    if greensfilled >= gamelen - 2:
+        for index, val in enumerate(greens):
+            if val == "":
+                emptyspots.append(index)
+        remainingLetters = set()
+        for spot in emptyspots:
+            for x in words:
+                remainingLetters.add(x[spot])
+        print("possible missing letters", remainingLetters)
+        qwords = getWordsWithLetters(saved_orig, remainingLetters)
+        print("words that have the potential missing letters", qwords[:15])
+
     print("number of words it could be: ", len(words))
-    if len(words) > 15:
-        print("some next guesses", words[:15])
-        happy = False
-        wordstoshow = 0
-        while not happy and wordstoshow < len(words):
-            answer = input("type y to see more guesses: ")
-            if answer != "y":
-                happy = True
-            else:
-                wordstoshow += 15
-                print("some next guesses", words[wordstoshow:wordstoshow+15])
-    else:
-        print("some next guesses", words)
+    print("some next guesses", words[:15])
 
     user_guess = ""
     while len(user_guess) != gamelen:
@@ -89,18 +77,25 @@ for i in range(6):
         response = input("Enter your result / 0 if not in there, 1 if yellow, 2 if green: ")
     if response == "2" * gamelen:
         break
+    greensthistime = []
     for index, (ug, r) in enumerate(zip(list(user_guess), list(response))):
         if r == "2":
+            if greens[index] == "":
+                greensfilled += 1
             greens[index] = ug
+            greensthistime.append(ug)
         if r == "1":
             yellows[ug].append(index)
         if r == "0":
             wrongs.add(ug)
     for index, (ug, r) in enumerate(zip(list(user_guess), list(response))):
-        if r == "0":  # this letter isn't there at all so remove those from the list --- NOT TRUE - if it's in wrongs and yellows then remove it from wrongs
-            if ug in yellows.keys() or ug in greens:
+        if r == "0":  # if it's in wrongs and yellows then remove it from wrongs
+            if (ug in yellows.keys() or ug in greens) and ug in wrongs:
                 wrongs.remove(ug)
                 yellows[ug].append(index)
+        if r == "1":
+            if ug in greensthistime:
+                doubles.add(ug)
 
     # Filtering stage
     greenStr = generate_green_str(greens)
@@ -108,11 +103,13 @@ for i in range(6):
         words = list(filter(lambda x: letter not in x, words))
     r = re.compile(greenStr)
     words = list(filter(r.match, words))
-
     for letter, indexes in yellows.items():
         # letter is the letter, indexes is a list of indexes that the letter can't be in
         # so this eliminates all words that have that letter in that position
         for index in indexes:
             words = list(filter(lambda x: x[index] != letter, words))
         # but if a letter is a yellow, it has to be in the word to begin with
-        words = list(filter(lambda x: letter in x, words))
+        if letter in doubles:
+            words = list(filter(lambda x: Counter(x)[letter] >= 2, words))
+        else:
+            words = list(filter(lambda x: letter in x, words))
