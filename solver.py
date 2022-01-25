@@ -4,6 +4,7 @@ import re
 import sys
 
 words = open("words/words_alpha.txt").read().strip().splitlines()
+words = open("words/wordle_words.txt").read().strip().split(",")
 gamelen = int(sys.argv[1])
 words = list(filter(lambda x: len(x) == gamelen, words))
 
